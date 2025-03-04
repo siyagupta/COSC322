@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Move element &apos;pom.xml&apos; to &apos;cosc 322&apos;&#x0D;&#x0A;- Original project: &apos;cosc 322&apos;&#x0D;&#x0A;- Destination element: &apos;cosc 322&apos;&#x0D;&#x0A;- Original element: &apos;pom.xml&apos;&#x0D;&#x0A;- Update references to refactored element" description="Move file" destination="=cosc 322" element1="src/pom.xml" files="1" flags="589830" folders="0" id="org.eclipse.jdt.ui.move" policy="org.eclipse.jdt.ui.moveResources" qualified="false" references="true" stamp="1736894307151" units="0" version="1.0"/>
+</session>
