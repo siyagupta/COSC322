@@ -25,7 +25,7 @@ public class COSC322Test extends GamePlayer{
     private String userName = null;
     private String passwd = null;
  
-	//testing 
+	
     /**
      * The main method
      * @param args for name and passwd (current, any string would work)
