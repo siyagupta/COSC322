@@ -15,7 +15,7 @@ import ygraph.ai.smartfox.games.GamePlayer;
  * An example illustrating how to implement a GamePlayer
  * @author Yong Gao (yong.gao@ubc.ca)
  * Jan 5, 2021
- *
+ * This is the Git code
  */
 public class COSC322Test extends GamePlayer{
 
