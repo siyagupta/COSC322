@@ -14,6 +14,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+
 import javax.swing.Box;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -111,7 +113,11 @@ public class COSC322Test extends GamePlayer{
 				ourBoard.canEnemyMove();
 				ourBoard.updateLegalQueenMoves();
                 search = new SearchTree(new SearchTreeNode(ourBoard));
-                SearchTreeNode ourBestMove = search.makeMove();
+                SearchTreeNode ourBestMove = null;
+                            try {
+                                ourBestMove = search.makeMove();
+                            } catch (ExecutionException ex) {
+                            }
                 Queen ourMove = ourBestMove.getQueen();
                 Arrow ourArrow = ourBestMove.getArrowShot();
                 ourBoard.canEnemyMove();
@@ -158,7 +164,7 @@ public class COSC322Test extends GamePlayer{
     }
 
 	//handle the event that the opponent makes a move. 
-	private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException{
+	private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException{
         boolean gameOver = false;
         turnCount++;
         gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
