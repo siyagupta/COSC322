@@ -1,28 +1,29 @@
 package ubc.cosc322;
 
 public class Arrow extends Tile implements Cloneable {
-	protected Arrow clone() {
-        Arrow aNew = new Arrow(row, col);
-        return aNew;
-    }
-	
-	public Arrow(int i, int j) {
-		super(i, j);
-	}
 
-	public int getColPosition() {
-        return super.col;
+    @Override
+    protected Arrow clone() {
+        try {
+            return (Arrow) super.clone();
+        } catch (CloneNotSupportedException e) {
+            return new Arrow(this.row, this.col); // Fallback in case of an issue
+        }
+    }
+
+    public Arrow(int i, int j) {
+        super(i, j);
+    }
+
+    public int getColPosition() {
+        return this.col;
     }
 
     public int getRowPosition() {
-        return super.row;
+        return this.row;
     }
 
     public int[] combinedMove(int row, int col) {
-        int[] move = new int[2];
-        move[0] = row;
-        move[1] = col;
-        return move;
+        return new int[]{row, col};
     }
-
 }
