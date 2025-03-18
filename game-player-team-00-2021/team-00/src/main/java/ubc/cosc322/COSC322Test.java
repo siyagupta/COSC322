@@ -1,4 +1,3 @@
-
 package ubc.cosc322;
 
 import java.util.ArrayList;
@@ -29,6 +28,7 @@ import javax.swing.JPanel;
 public class COSC322Test extends GamePlayer{
 
     private SearchTree search;
+	private IterativeDeepening iter;
 	private GameClient gameClient = null; 
     private BaseGameGUI gamegui = null;
 	
@@ -113,6 +113,7 @@ public class COSC322Test extends GamePlayer{
 				ourBoard.canEnemyMove();
 				ourBoard.updateLegalQueenMoves();
                 search = new SearchTree(new SearchTreeNode(ourBoard));
+				iter = new IterativeDeepening();
                 SearchTreeNode ourBestMove = null;
                             try {
                                 ourBestMove = search.makeMove();
@@ -138,6 +139,7 @@ public class COSC322Test extends GamePlayer{
                 enemyPlayer = "White Player: " + msgDetails.get("player-white");
                 ourBoard = new GameRules(false);
                 search = new SearchTree(new SearchTreeNode(ourBoard));
+				
 
             }
 			
@@ -179,6 +181,7 @@ public class COSC322Test extends GamePlayer{
 		// enemyQueen.previousCol = convertCol(qcurr.get(1));
 		// Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get((1))));
 		// search.makeMoveOnRoot(enemyQueen, enemyArrow);
+		//iter.makeMoveOnRoot(enemyQueen, enemyArrow);
         // board.markPosition(qnew.get(0), qnew.get(1), arrow.get(0), arrow.get(1),
         //         qcurr.get(0), qcurr.get(1), true);
         ourBoard.canEnemyMove();
