@@ -10,6 +10,14 @@ public class Arrow extends Tile implements Cloneable {
 		super(i, j);
 	}
 
+    // Static method to get an Arrow by index
+    public static Arrow get(int index) {
+        if (index >= 0) {
+            return Arrow.get(index);
+        }
+        return null;  // Or throw an exception
+    }
+
 	public int getColPosition() {
         return super.col;
     }

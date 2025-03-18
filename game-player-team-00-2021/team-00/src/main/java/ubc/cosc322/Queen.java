@@ -40,6 +40,15 @@ public class Queen extends Tile implements Cloneable{
     	this.isOpponent = isOpponent;
     }
 
+    public int[] getOldPosition() {
+    return new int[]{previousRow, previousCol};
+}
+
+public int[] getNewPosition() {
+    return new int[]{super.row, super.col};  // Returns the updated position
+}
+
+
     /**
      * moveQueen: places a Queen object at its new location
      * @param row: an int containing the row position of the Queen
