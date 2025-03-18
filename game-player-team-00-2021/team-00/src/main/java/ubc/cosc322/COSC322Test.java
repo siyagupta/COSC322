@@ -2,7 +2,6 @@
 package ubc.cosc322;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -10,7 +9,6 @@ import ygraph.ai.smartfox.games.BaseGameGUI;
 import ygraph.ai.smartfox.games.GameClient;
 import ygraph.ai.smartfox.games.GameMessage;
 import ygraph.ai.smartfox.games.GamePlayer;
-import ygraph.ai.smartfox.games.amazons.AmazonsGameMessage;
 
 public class COSC322Test extends GamePlayer {
 
@@ -58,149 +56,116 @@ public class COSC322Test extends GamePlayer {
     @Override
     public boolean handleGameMessage(String messageType, Map<String, Object> msgDetails) {
         if (messageType.equals(GameMessage.GAME_ACTION_START)) {
-            String whitePlayer = (String) msgDetails.get("player-white");
-            String blackPlayer = (String) msgDetails.get("player-black");
-
-            if (whitePlayer.equals(this.userName)) {
-                ourPlayer = "White Player: " + this.userName;
-                enemyPlayer = "Black Player: " + blackPlayer;
+            if (((String) msgDetails.get("player-white")).equals(this.userName())) {
+                System.out.println("Game State: " + msgDetails.get("player-white"));
+                ourPlayer = "White Player: " + this.userName();
+                enemyPlayer = "Black Player: " + msgDetails.get("player-black");
+                turnCount++;
+                gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
                 ourBoard = new GameRules(true);
+                System.out.println("Initial Board");
+                ourBoard.printBoard();
+                ourBoard.canEnemyMove();
+                ourBoard.updateLegalQueenMoves();
+                search = new SearchTree(new SearchTreeNode(ourBoard));
+                SearchTreeNode ourBestMove = null;
+                try {
+                    ourBestMove = search.makeMove();
+                } catch (ExecutionException ex) {
+                    ex.printStackTrace();
+                }
+                Queen ourMove = ourBestMove.getQueen();
+                Arrow ourArrow = ourBestMove.getArrowShot();
+                ourBoard.canEnemyMove();
+                ourBoard.updateLegalQueenMoves();
+                System.out.println("\nOur Move: [" + translateRow(ourMove.row) + ", " + translateCol(ourMove.col) + "]");
+                System.out.println("Our Arrow Shot: [" + translateRow(ourArrow.row) + ", " + translateCol(ourArrow.col) + "]\n");
+
+                ourBoard.printBoard();
+
+            } else {
+                ourPlayer = "Black Player: " + this.userName();
+                enemyPlayer = "White Player: " + msgDetails.get("player-white");
+                ourBoard = new GameRules(false);
                 search = new SearchTree(new SearchTreeNode(ourBoard));
 
-                try {
-                    SearchTreeNode ourBestMove = search.makeMove();
-                    if (ourBestMove != null) {
-                        Queen ourMove = ourBestMove.getQueen();
-                        Arrow ourArrow = ourBestMove.getArrowShot();
-
-                        int[] qcurr = ourMove.getOldPosition();
-                        int[] qnew = ourMove.getNewPosition();
-
-                        // Apply coordinate translation so the board marks the queen correctly.
-                        gameClient.sendMoveMessage(
-                            toArrayList(new int[]{ translateRow(qcurr[0]), translateCol(qcurr[1]) }),
-                            toArrayList(new int[]{ translateRow(qnew[0]), translateCol(qnew[1]) }),
-                            toArrayList(new int[]{ translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition()) })
-                        );
-                    }
-                } catch (ExecutionException ignored) {}
             }
+        } else if (messageType.equals(GameMessage.GAME_ACTION_MOVE)) {
+            // Handle opponent move if necessary.
         }
+
+        ArrayList<Integer> GameS = (ArrayList<Integer>) msgDetails.get("game-state");
+        gamegui.setGameState(GameS);
+
         return true;
     }
 
     private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
+        boolean gameOver = false;
         turnCount++;
-        gamegui.setTitle("Turn: " + turnCount + " | Move: " + ourPlayer + " | " + enemyPlayer);
-
-        // These positions come from the server; assume they are already in the correct coordinate system.
-        ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
-        ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
-        ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
-
-        Queen enemyQueen = new Queen(convertRow(qnew.get(0)), convertCol(qnew.get(1)), true);
-        enemyQueen.previousRow = convertRow(qcurr.get(0));
-        enemyQueen.previousCol = convertCol(qcurr.get(1));
-
-        Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get(1)));
-        search.makeMoveOnRoot(enemyQueen, enemyArrow);
-
-        // For moves received from the server, we assume they are already translated.
-        gameClient.sendMoveMessage(
-                new ArrayList<>(List.of(qcurr.get(0), qcurr.get(1))),
-                new ArrayList<>(List.of(qnew.get(0), qnew.get(1))),
-                new ArrayList<>(List.of(arrow.get(0), arrow.get(1)))
-        );
+        gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
 
         ourBoard.canEnemyMove();
         ourBoard.updateLegalQueenMoves();
         ourBoard.printBoard();
 
-        if (ourBoard.goalTest()) {
-            System.out.println("\nTHE GAME IS NOW OVER\n");
-            return;
+        // Check if we're at a goal node
+        gameOver = ourBoard.goalTest();
+
+        if (gameOver) {
+            System.out.println("\n THE GAME IS NOW OVER \n");
         }
 
+        // Our move
         turnCount++;
-        gamegui.setTitle("Turn: " + turnCount + " | Move: " + ourPlayer + " | " + enemyPlayer);
-
+        gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
         SearchTreeNode ourBestMove = search.makeMove();
-        if (ourBestMove != null) {
-            Queen ourMove = ourBestMove.getQueen();
-            Arrow ourArrow = ourBestMove.getArrowShot();
-            gameClient.sendMoveMessage(
-                    toArrayList(ourMove.combinedMove(translateRow(ourMove.previousRow), translateCol(ourMove.previousCol))),
-                    toArrayList(ourMove.combinedMove(translateRow(ourMove.row), translateCol(ourMove.col))),
-                    toArrayList(ourArrow.combinedMove(translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition())))
-            );
-        }
+        Queen ourMove = ourBestMove.getQueen();
+        Arrow ourArrow = ourBestMove.getArrowShot();
+        ourBoard.canEnemyMove();
+        ourBoard.updateLegalQueenMoves();
+        System.out.println("\nOur Move: [" + translateRow(ourMove.row) + ", " + translateCol(ourMove.col) + "]");
+        ourBoard.printBoard();
+        gameOver = ourBoard.goalTest();
 
-        if (ourBoard.goalTest()) {
-            System.out.println("\nTHE GAME IS NOW OVER\n");
+        if (gameOver) {
+            System.out.println("\n THE GAME IS NOW OVER \n");
         }
     }
 
     private int convertRow(int row) {
-        // Convert from server's coordinate system to our internal system.
-        return Math.abs(row - 10);
+        return Math.abs(row - 10); // formula to convert server's row coordinate system to our Board's coordinate system
     }
 
     private int convertCol(int col) {
-        return (col - 1);
-    }
-
-    // These translation methods convert our board's coordinates to the server's system.
-    private int translateRow(int row) {
-        return Math.abs(10 - row);
+        return (col - 1); // formula to convert server's column coordinate system to our Board's coordinate system
     }
 
     private int translateCol(int col) {
-        return col + 1;
+        return (col + 1); // formula to translate our Board's column coordinate system to the server's coordinate system
     }
 
-    public void playerMove(int x, int y, int arow, int acol, int qfr, int qfc) {
-        // In a human move the board is already in our coordinate system.
-        int[] qf = new int[]{qfr, qfc};
-        int[] qn = new int[]{x, y};
-        int[] ar = new int[]{arow, acol};
-
-        // For human moves, send the raw coordinates (or add translation if needed)
-        gameClient.sendMoveMessage(
-                toArrayList(qf),
-                toArrayList(qn),
-                toArrayList(ar)
-        );
-    }
-
-    // Helper method: converts an int[] to an ArrayList<Integer>
-    private ArrayList<Integer> toArrayList(int[] arr) {
-        ArrayList<Integer> list = new ArrayList<>();
-        for (int i : arr) {
-            list.add(i);
-        }
-        return list;
-    }
-
-    @Override
-    public GameClient getGameClient() {
-        // Minimal implementation; code preserved.
-        return gameClient;
-    }
-
-    @Override
-    public BaseGameGUI getGameGUI() {
-        // Minimal implementation; code preserved.
-        return gamegui;
-    }
-
-    @Override
-    public void connect() {
-        // Minimal implementation; code preserved.
+    private int translateRow(int row) {
+        return Math.abs(10 - row); // formula to convert our Board's row coordinate system to the server's coordinate system
     }
 
     @Override
     public String userName() {
-        // Minimal implementation; code preserved.
         return userName;
+    }
+
+    @Override
+    public GameClient getGameClient() {
+        return this.gameClient;
+    }
+
+    @Override
+    public BaseGameGUI getGameGUI() {
+        return this.gamegui;
+    }
+
+    @Override
+    public void connect() {
+        gameClient = new GameClient(userName, passwd, this);
     }
 }
