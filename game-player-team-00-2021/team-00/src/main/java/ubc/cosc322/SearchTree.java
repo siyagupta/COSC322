@@ -1,7 +1,12 @@
 //package ygraphs.ai.smart_fox.games;
+//package ygraphs.ai.smart_fox.games;
 package ubc.cosc322;
 import java.util.ArrayList;
-
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 public class SearchTree {
     private SearchTreeNode root;
     private minDisHeur minDistH = new minDisHeur();
@@ -47,40 +52,114 @@ public class SearchTree {
      * @param maxPlayer: boolean indicating whether or not we're attempting to maximize alpha
      * @return: an int representing the weighting of the move
      */
-    private int AlphaBeta(SearchTreeNode N, int D, int alpha, int beta, boolean maxPlayer) {
-        if (D == 0 || N.getChildren().size() == 0) {
-            evaluation++;
-            minDistH.calculate(N.gameRules);
-            N.setValue(minDistH.ownedByUs - minDistH.ownedByThem);
-            int val = N.getValue();
-            return val;
-        }
+//     import java.util.concurrent.*;
+// import java.util.List;
 
-        if (maxPlayer) {
-            int V = Integer.MIN_VALUE;
-            for (SearchTreeNode S : N.getChildren()) {
-                V = Math.max(V, AlphaBeta(S, D - 1, alpha, beta, false));
-                alpha = Math.max(alpha, V);
-                if (beta <= alpha) {
-                    break;
-                }
-            }
-            N.setValue(V);
-            return V;
 
-        } else {
-            int V = Integer.MAX_VALUE;
-            for (SearchTreeNode S : N.getChildren()) {
-                V = Math.min(V, AlphaBeta(S, D - 1, alpha, beta, true));
-                beta = Math.min(beta, V);
-                if (beta <= alpha)
-                    break;
-            }
-            N.setValue(V);
-            return V;
-        }
+
+private int AlphaBeta(SearchTreeNode N, int D, int alpha, int beta, boolean maxPlayer) throws ExecutionException {
+    if (D == 0 || N.getChildren().size() == 0) {
+        evaluation++;
+        minDistH.calculate(N.gameRules);
+        N.setValue(minDistH.ownedByUs - minDistH.ownedByThem);
+        return N.getValue();
     }
 
+    if (maxPlayer) {
+        AtomicInteger atomicAlpha = new AtomicInteger(alpha);
+        AtomicInteger atomicBeta = new AtomicInteger(beta); 
+        int V = Integer.MIN_VALUE;
+        List<Future<Integer>> futures = new ArrayList<>();
+        ForkJoinPool pool = new ForkJoinPool();
+
+        // Parallelizing the loop
+        for (SearchTreeNode S : N.getChildren()) {
+            futures.add(pool.submit(() -> AlphaBeta(S, D - 1, atomicAlpha.get(), atomicBeta.get(), false)));
+        }
+
+        // Processing results
+        for (Future<Integer> future : futures) {
+            try {
+                V = Math.max(V, future.get()); // Retrieves result from future
+                atomicAlpha.set(Math.max(atomicAlpha.get(), V)); // Update atomicAlpha
+                if (beta <= atomicAlpha.get()) {
+                    break;
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+                // Optionally, you can handle the exception here (e.g., return a default value or rethrow)
+            }
+        }
+
+        N.setValue(V);
+        pool.shutdown(); // Properly shut down the pool
+        return V;
+
+    } else {
+        AtomicInteger atomicBeta = new AtomicInteger(beta); // Use AtomicInteger for beta
+        int V = Integer.MAX_VALUE;
+        List<Future<Integer>> futures = new ArrayList<>();
+        ForkJoinPool pool = new ForkJoinPool();
+
+        // Parallelizing the loop
+        for (SearchTreeNode S : N.getChildren()) {
+            futures.add(pool.submit(() -> AlphaBeta(S, D - 1, alpha, atomicBeta.get(), true)));
+        }
+
+        // Processing results
+        for (Future<Integer> future : futures) {
+            try {
+                V = Math.min(V, future.get()); // Retrieves result from future
+                atomicBeta.set(Math.min(atomicBeta.get(), V)); // Update atomicBeta
+                if (atomicBeta.get() <= alpha) {
+                    break;
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+                // Optionally, you can handle the exception here (e.g., return a default value or rethrow)
+            }
+        }
+
+        N.setValue(V);
+        pool.shutdown(); // Properly shut down the pool
+        return V;
+    }
+}
+
+
+    // private int AlphaBeta(SearchTreeNode N, int D, int alpha, int beta, boolean maxPlayer) {
+    //     if (D == 0 || N.getChildren().size() == 0) {
+    //         evaluation++;
+    //         minDistH.calculate(N.gameRules);
+    //         N.setValue(minDistH.ownedByUs - minDistH.ownedByThem);
+    //         int val = N.getValue();
+    //         return val;
+    //     }
+
+    //     if (maxPlayer) {
+    //         int V = Integer.MIN_VALUE;
+    //         for (SearchTreeNode S : N.getChildren()) {
+    //             V = Math.max(V, AlphaBeta(S, D - 1, alpha, beta, false));
+    //             alpha = Math.max(alpha, V);
+    //             if (beta <= alpha) {
+    //                 break;
+    //             }
+    //         }
+    //         N.setValue(V);
+    //         return V;
+
+    //     } else {
+    //         int V = Integer.MAX_VALUE;
+    //         for (SearchTreeNode S : N.getChildren()) {
+    //             V = Math.min(V, AlphaBeta(S, D - 1, alpha, beta, true));
+    //             beta = Math.min(beta, V);
+    //             if (beta <= alpha)
+    //                 break;
+    //         }
+    //         N.setValue(V);
+    //         return V;
+    //     }
+    // }
     /**
      * expandFrontier: Depending on if the depth is even or odd, add the successor SearchTreeNodes
      * as friendly/enemy SearchTreeNodes. If we have an even depth, then we know we are evaluating our nodes
@@ -114,7 +193,7 @@ public class SearchTree {
      * performAlphaBeta: Calculates how far down into the SearchTree we will go,
      * and whether or not we're trying to maximize our move (we always are, so set as true)
      */
-    public void performAlphaBeta() {
+    public void performAlphaBeta() throws ExecutionException {
         evaluation = 0;
         calculateDepth();
         AlphaBeta(root, depth, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
@@ -181,7 +260,7 @@ public class SearchTree {
      * makeMove: performs expansion/trimming, alpha beta, and performs our move
      * @return: SearchTreeNode containing our best possible Queen move
      */
-    public SearchTreeNode makeMove() {
+    public SearchTreeNode makeMove() throws ExecutionException {
         /* "Thresholding" based off the number of moves we have
             in order to increase our likelyhood of winning
          */
