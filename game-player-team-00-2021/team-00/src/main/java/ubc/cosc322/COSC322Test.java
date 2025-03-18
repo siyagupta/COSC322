@@ -4,10 +4,12 @@ package ubc.cosc322;
 import java.util.ArrayList;
 import java.util.Map;
 
+import ygraph.ai.smartfox.games.Amazon.GameBoard;
 import ygraph.ai.smartfox.games.BaseGameGUI;
 import ygraph.ai.smartfox.games.GameClient;
 import ygraph.ai.smartfox.games.GameMessage;
 import ygraph.ai.smartfox.games.GamePlayer;
+import ygraph.ai.smartfox.games.amazons.AmazonsGameMessage;
 
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -34,8 +36,8 @@ public class COSC322Test extends GamePlayer{
 	
     private String userName = null;
     private String passwd = null;
-    // private JFrame guiFrame = null;    
-    // private GameBoard board = null; 
+     private JFrame guiFrame = null;    
+     private GameBoard board = null; 
     private boolean gameStarted = false;   
     public String usrName = null;
     private GameRules ourBoard = null;
@@ -124,12 +126,24 @@ public class COSC322Test extends GamePlayer{
                 ourBoard.updateLegalQueenMoves();
 				 System.out.println("\nOur Move: [" + translateRow(ourMove.row) + ", " + translateCol(ourMove.col) + "]");
 				 System.out.println("Our Arrow Shot: [" + translateRow(ourArrow.row) + ", " + translateCol(ourArrow.col) + "]\n");
-				//  gameClient.markPosition(translateRow(ourMove.row), translateCol(ourMove.col), translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition()),
-				//  		translateRow(ourMove.previousRow), translateCol(ourMove.previousCol), false);
+				  board.markPosition(translateRow(ourMove.row), translateCol(ourMove.col), translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition()),
+				  		translateRow(ourMove.previousRow), translateCol(ourMove.previousCol), false);
+				  ArrayList<Integer> queenPosCurrent = new ArrayList<>();
+				  ArrayList<Integer> queenPosNew = new ArrayList<>();
+				  ArrayList<Integer> arrowPos = new ArrayList<>();
 
-                //  gameClient.sendMoveMessage(ourMove.combinedMove(translateRow(ourMove.previousRow), translateCol(ourMove.previousCol)),
-                //          ourMove.combinedMove(translateRow(ourMove.row), translateCol(ourMove.col)),
-                //          ourArrow.combinedMove(translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition())));
+				  // Populate the ArrayLists with current and new positions for the Queen
+				  queenPosCurrent.add(translateRow(ourMove.previousRow));
+				  queenPosCurrent.add(translateCol(ourMove.previousCol));
+				  queenPosNew.add(translateRow(ourMove.row));
+				  queenPosNew.add(translateCol(ourMove.col));
+
+				  // Populate the ArrayList with the arrow's position
+				  arrowPos.add(translateRow(ourArrow.getRowPosition()));
+				  arrowPos.add(translateCol(ourArrow.getColPosition()));
+
+				  // Send the move message
+				  gameClient.sendMoveMessage( queenPosCurrent,queenPosNew, arrowPos);
                 ourBoard.printBoard();
 
             }
@@ -144,11 +158,15 @@ public class COSC322Test extends GamePlayer{
 		}
 		else if(messageType.equals(GameMessage.GAME_ACTION_MOVE)){
 
-        	// try {
-			// 	handleOpponentMove(msgDetails);
-			// } catch (CloneNotSupportedException e) {
-			// 	e.printStackTrace();
-			// }
+        	 try {
+			 	handleOpponentMove(msgDetails);
+			 } catch (CloneNotSupportedException e) {
+			 	e.printStackTrace();
+			 	
+			 } catch (ExecutionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
         }
 		//return true;
     	//This method will be called by the GameClient when it receives a game-related message
@@ -168,19 +186,19 @@ public class COSC322Test extends GamePlayer{
         boolean gameOver = false;
         turnCount++;
         gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
-		// System.out.println("\nOpponentMove: " + msgDetails.get(AmazonsGameMessage.Queen_POS_NEXT));
-        // System.out.println("Opponent Arrow Shot: " + msgDetails.get(AmazonsGameMessage.ARROW_POS) + "\n");
-		// ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
-		// ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.Queen_POS_NEXT);
-		// ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
+		 System.out.println("\nOpponentMove: " + msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT));
+         System.out.println("Opponent Arrow Shot: " + msgDetails.get(AmazonsGameMessage.ARROW_POS) + "\n");
+		 ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
+		 ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
+		 ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
         // Enemy move
-		// Queen enemyQueen = new Queen(convertRow(qnew.get(0)), convertCol(qnew.get(1)), true);
-		// enemyQueen.previousRow = convertRow(qcurr.get(0));
-		// enemyQueen.previousCol = convertCol(qcurr.get(1));
-		// Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get((1))));
-		// search.makeMoveOnRoot(enemyQueen, enemyArrow);
-        // board.markPosition(qnew.get(0), qnew.get(1), arrow.get(0), arrow.get(1),
-        //         qcurr.get(0), qcurr.get(1), true);
+		 Queen enemyQueen = new Queen(convertRow(qnew.get(0)), convertCol(qnew.get(1)), true);
+		 enemyQueen.previousRow = convertRow(qcurr.get(0));
+		 enemyQueen.previousCol = convertCol(qcurr.get(1));
+		 Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get((1))));
+		 search.makeMoveOnRoot(enemyQueen, enemyArrow);
+         board.markPosition(qnew.get(0), qnew.get(1), arrow.get(0), arrow.get(1),
+                 qcurr.get(0), qcurr.get(1), true);
         ourBoard.canEnemyMove();
 		ourBoard.updateLegalQueenMoves();
         ourBoard.printBoard();
@@ -201,12 +219,10 @@ public class COSC322Test extends GamePlayer{
         ourBoard.canEnemyMove();
         ourBoard.updateLegalQueenMoves();
         System.out.println("\nOur Move: [" + translateRow(ourMove.row) + ", " + translateCol(ourMove.col) + "]");
-        // gameClient.markPosition(translateRow(ourMove.row), translateCol(ourMove.col), translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition()),
-        //         translateRow(ourMove.previousRow), translateCol(ourMove.previousCol), false);
-		// System.out.println("Our Arrow Shot: [" + translateRow(ourArrow.row) + ", " + translateCol(ourArrow.col) + "]\n");
-        // gameClient.sendMoveMessage(ourMove.combinedMove(translateRow(ourMove.previousRow), translateCol(ourMove.previousCol)),
-				// ourMove.combinedMove(translateRow(ourMove.row), translateCol(ourMove.col)),
-				// ourArrow.combinedMove(translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition())));
+         board.markPosition(translateRow(ourMove.row), translateCol(ourMove.col), translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition()),
+                 translateRow(ourMove.previousRow), translateCol(ourMove.previousCol), false);
+		 System.out.println("Our Arrow Shot: [" + translateRow(ourArrow.row) + ", " + translateCol(ourArrow.col) + "]\n");
+        gameClient.sendMoveMessage(qnew, qcurr, arrow);
         ourBoard.printBoard();
         gameOver = ourBoard.goalTest();
 
