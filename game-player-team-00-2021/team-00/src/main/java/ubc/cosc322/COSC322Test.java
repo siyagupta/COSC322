@@ -56,46 +56,44 @@ public class COSC322Test extends GamePlayer {
     }
 
     @Override
-public boolean handleGameMessage(String messageType, Map<String, Object> msgDetails) {
-    if (messageType.equals(GameMessage.GAME_ACTION_START)) {
-        String whitePlayer = (String) msgDetails.get("player-white");
-        String blackPlayer = (String) msgDetails.get("player-black");
+    public boolean handleGameMessage(String messageType, Map<String, Object> msgDetails) {
+        if (messageType.equals(GameMessage.GAME_ACTION_START)) {
+            String whitePlayer = (String) msgDetails.get("player-white");
+            String blackPlayer = (String) msgDetails.get("player-black");
 
-        if (whitePlayer.equals(this.userName)) {
-            ourPlayer = "White Player: " + this.userName;
-            enemyPlayer = "Black Player: " + blackPlayer;
-            ourBoard = new GameRules(true);
-            search = new SearchTree(new SearchTreeNode(ourBoard));
+            if (whitePlayer.equals(this.userName)) {
+                ourPlayer = "White Player: " + this.userName;
+                enemyPlayer = "Black Player: " + blackPlayer;
+                ourBoard = new GameRules(true);
+                search = new SearchTree(new SearchTreeNode(ourBoard));
 
-            try {
-                SearchTreeNode ourBestMove = search.makeMove();
-                if (ourBestMove != null) {
-                    Queen ourMove = ourBestMove.getQueen();
-                    Arrow ourArrow = ourBestMove.getArrowShot();
+                try {
+                    SearchTreeNode ourBestMove = search.makeMove();
+                    if (ourBestMove != null) {
+                        Queen ourMove = ourBestMove.getQueen();
+                        Arrow ourArrow = ourBestMove.getArrowShot();
 
-                    int[] qcurr = ourMove.getOldPosition();
-                    int[] qnew = ourMove.getNewPosition();
+                        int[] qcurr = ourMove.getOldPosition();
+                        int[] qnew = ourMove.getNewPosition();
 
-                gameClient.sendMoveMessage(
-                new ArrayList<>(List.of(qcurr[0], qcurr[1])), 
-                new ArrayList<>(List.of(qnew[0], qnew[1])), 
-                new ArrayList<>(List.of(Arrow.get(0), Arrow.get(1)))
-);
-
-                    
-                    
-                }
-            } catch (ExecutionException ignored) {}
+                        // Apply coordinate translation so the board marks the queen correctly.
+                        gameClient.sendMoveMessage(
+                            toArrayList(new int[]{ translateRow(qcurr[0]), translateCol(qcurr[1]) }),
+                            toArrayList(new int[]{ translateRow(qnew[0]), translateCol(qnew[1]) }),
+                            toArrayList(new int[]{ translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition()) })
+                        );
+                    }
+                } catch (ExecutionException ignored) {}
+            }
         }
+        return true;
     }
-    return true;
-}
-
 
     private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
         turnCount++;
         gamegui.setTitle("Turn: " + turnCount + " | Move: " + ourPlayer + " | " + enemyPlayer);
 
+        // These positions come from the server; assume they are already in the correct coordinate system.
         ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
         ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
         ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
@@ -107,10 +105,11 @@ public boolean handleGameMessage(String messageType, Map<String, Object> msgDeta
         Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get(1)));
         search.makeMoveOnRoot(enemyQueen, enemyArrow);
 
+        // For moves received from the server, we assume they are already translated.
         gameClient.sendMoveMessage(
-                new int[]{qcurr.get(0), qcurr.get(1)},
-                new int[]{qnew.get(0), qnew.get(1)},
-                new int[]{arrow.get(0), arrow.get(1)}
+                new ArrayList<>(List.of(qcurr.get(0), qcurr.get(1))),
+                new ArrayList<>(List.of(qnew.get(0), qnew.get(1))),
+                new ArrayList<>(List.of(arrow.get(0), arrow.get(1)))
         );
 
         ourBoard.canEnemyMove();
@@ -130,9 +129,9 @@ public boolean handleGameMessage(String messageType, Map<String, Object> msgDeta
             Queen ourMove = ourBestMove.getQueen();
             Arrow ourArrow = ourBestMove.getArrowShot();
             gameClient.sendMoveMessage(
-                    new int[]{ourMove.previousRow, ourMove.previousCol},
-                    new int[]{ourMove.row, ourMove.col},
-                    new int[]{ourArrow.getRowPosition(), ourArrow.getColPosition()}
+                    toArrayList(ourMove.combinedMove(translateRow(ourMove.previousRow), translateCol(ourMove.previousCol))),
+                    toArrayList(ourMove.combinedMove(translateRow(ourMove.row), translateCol(ourMove.col))),
+                    toArrayList(ourArrow.combinedMove(translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition())))
             );
         }
 
@@ -142,6 +141,7 @@ public boolean handleGameMessage(String messageType, Map<String, Object> msgDeta
     }
 
     private int convertRow(int row) {
+        // Convert from server's coordinate system to our internal system.
         return Math.abs(row - 10);
     }
 
@@ -149,29 +149,58 @@ public boolean handleGameMessage(String messageType, Map<String, Object> msgDeta
         return (col - 1);
     }
 
+    // These translation methods convert our board's coordinates to the server's system.
+    private int translateRow(int row) {
+        return Math.abs(10 - row);
+    }
+
+    private int translateCol(int col) {
+        return col + 1;
+    }
+
     public void playerMove(int x, int y, int arow, int acol, int qfr, int qfc) {
+        // In a human move the board is already in our coordinate system.
+        int[] qf = new int[]{qfr, qfc};
+        int[] qn = new int[]{x, y};
+        int[] ar = new int[]{arow, acol};
+
+        // For human moves, send the raw coordinates (or add translation if needed)
         gameClient.sendMoveMessage(
-                new int[]{qfr, qfc}, new int[]{x, y}, new int[]{arow, acol}
+                toArrayList(qf),
+                toArrayList(qn),
+                toArrayList(ar)
         );
+    }
+
+    // Helper method: converts an int[] to an ArrayList<Integer>
+    private ArrayList<Integer> toArrayList(int[] arr) {
+        ArrayList<Integer> list = new ArrayList<>();
+        for (int i : arr) {
+            list.add(i);
+        }
+        return list;
     }
 
     @Override
     public GameClient getGameClient() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        // Minimal implementation; code preserved.
+        return gameClient;
     }
 
     @Override
     public BaseGameGUI getGameGUI() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        // Minimal implementation; code preserved.
+        return gamegui;
     }
 
     @Override
     public void connect() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        // Minimal implementation; code preserved.
     }
 
     @Override
     public String userName() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        // Minimal implementation; code preserved.
+        return userName;
     }
 }
