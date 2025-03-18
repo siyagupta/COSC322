@@ -481,24 +481,4 @@ public class GameRules {
         boardLayout += line;
         System.out.println(boardLayout);
     } // end of printBoard
-    protected int[][] getAdjacencyMatrix() {
-        int[][] adjacencyMatrix = new int[10][10]; // 10x10 board
-
-        // Iterate over all queens (both enemy and friend)
-        for (Queen q : enemy) {
-            ArrayList<Queen> legalMoves = getLegalMoves(q); // Get legal moves for enemy queen
-            for (Queen move : legalMoves) {
-                adjacencyMatrix[move.row][move.col] = 1; // Mark legal move in adjacency matrix
-            }
-        }
-
-        for (Queen q : friend) {
-            ArrayList<Queen> legalMoves = getLegalMoves(q); // Get legal moves for our queen
-            for (Queen move : legalMoves) {
-                adjacencyMatrix[move.row][move.col] = 1; // Mark legal move in adjacency matrix
-            }
-        }
-
-        return adjacencyMatrix; // Return the adjacency matrix
-    }
 }
