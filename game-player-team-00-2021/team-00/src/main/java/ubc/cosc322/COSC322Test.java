@@ -101,37 +101,34 @@ public class COSC322Test extends GamePlayer {
     }
 
     private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
-        boolean gameOver = false;
         turnCount++;
         gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
-
+        ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
+        ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
+        ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
+        
+        Queen enemyQueen = new Queen(convertRow(qnew.get(0)), convertCol(qnew.get(1)), true);
+        enemyQueen.previousRow = convertRow(qcurr.get(0));
+        enemyQueen.previousCol = convertCol(qcurr.get(1));
+        Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get(1)));
+        search.makeMoveOnRoot(enemyQueen, enemyArrow);
+        
+        markArrow(qnew, arrow, qcurr, true);
         ourBoard.canEnemyMove();
         ourBoard.updateLegalQueenMoves();
         ourBoard.printBoard();
-
-        // Check if we're at a goal node
-        gameOver = ourBoard.goalTest();
-
-        if (gameOver) {
+        
+        if(ourBoard.goalTest()) {
             System.out.println("\n THE GAME IS NOW OVER \n");
+            return;
         }
-
-        // Our move
+        
         turnCount++;
         gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
         SearchTreeNode ourBestMove = search.makeMove();
-        Queen ourMove = ourBestMove.getQueen();
-        Arrow ourArrow = ourBestMove.getArrowShot();
-        ourBoard.canEnemyMove();
-        ourBoard.updateLegalQueenMoves();
-        System.out.println("\nOur Move: [" + translateRow(ourMove.row) + ", " + translateCol(ourMove.col) + "]");
-        ourBoard.printBoard();
-        gameOver = ourBoard.goalTest();
-
-        if (gameOver) {
-            System.out.println("\n THE GAME IS NOW OVER \n");
-        }
+        executeMove(ourBestMove);
     }
+
 
     private int convertRow(int row) {
         return Math.abs(row - 10); // formula to convert server's row coordinate system to our Board's coordinate system
