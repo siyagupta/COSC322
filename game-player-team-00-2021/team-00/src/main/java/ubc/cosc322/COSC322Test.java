@@ -1,4 +1,3 @@
-
 package ubc.cosc322;
 
 import java.util.ArrayList;
@@ -13,8 +12,8 @@ import ygraph.ai.smartfox.games.BaseGameGUI;
 import ygraph.ai.smartfox.games.GameClient;
 import ygraph.ai.smartfox.games.GameMessage;
 import ygraph.ai.smartfox.games.GamePlayer;
+import ygraph.ai.smartfox.games.amazons.AmazonsBoard;
 import ygraph.ai.smartfox.games.amazons.AmazonsGameMessage;
-import ygraph.ai.smartfox.games.amazons.HumanPlayer;
 
 public class COSC322Test extends GamePlayer {
 
@@ -24,6 +23,7 @@ public class COSC322Test extends GamePlayer {
     private GameBoard gameBoard = null;
     private String userName = null;
     private String passwd = null;
+    private AmazonsBoard amazonsBoard;
     private boolean gameStarted = false;
     private GameRules ourBoard = null;
     int turnCount = 0;
@@ -31,8 +31,9 @@ public class COSC322Test extends GamePlayer {
     String enemyPlayer = "";
 
     public static void main(String[] args) {
-    	COSC322Test player = new COSC322Test("cosc322", "cosc322");
-        
+    	String uniqueUserName = "player_" + System.currentTimeMillis();
+        COSC322Test player = new COSC322Test(uniqueUserName, "cosc322");
+        player.connect();
         if (player.getGameGUI() == null) {
             player.Go();
         } else {
@@ -46,8 +47,11 @@ public class COSC322Test extends GamePlayer {
         this.userName = userName;
         this.passwd = passwd;
         this.gamegui = new BaseGameGUI(this);
+        ygraph.ai.smartfox.games.Amazon amazonInstance = new ygraph.ai.smartfox.games.Amazon(userName, passwd);
+        this.gameBoard = amazonInstance.new GameBoard(amazonInstance);
+       this.amazonsBoard = new AmazonsBoard();
     }
-   
+ 
     @Override
     public void onLogin() {
         if (gameClient != null) {
@@ -71,7 +75,11 @@ public class COSC322Test extends GamePlayer {
             }
         }
     }
-
+private void updateGameGUI(Map<String, Object> msgDetails) {
+    if (gamegui != null && amazonsBoard != null) {
+        gamegui.setGameState((ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.GAME_STATE));
+    }
+}
     @Override
     public boolean handleGameMessage(String messageType, Map<String, Object> msgDetails) {
     	switch(messageType) {
@@ -144,7 +152,8 @@ public class COSC322Test extends GamePlayer {
 		}
 		System.out.println(msgDetails.get(AmazonsGameMessage.GAME_STATE_BOARD));
     }
-    private void handleGameStart(String messageType, Map<String, Object> msgDetails) {
+    /*
+    private void handleGameStart(int x, String messageType, Map<String, Object> msgDetails) {
     	if (messageType.equals(GameMessage.GAME_ACTION_START)) {
             if (((String) msgDetails.get("player-white")).equals(this.userName())) {
                 System.out.println("Game State: " + msgDetails.get("player-white"));
@@ -187,16 +196,87 @@ public class COSC322Test extends GamePlayer {
             }
     	}
         
+    } */
+  private void handleGameStart(String messageType, Map<String, Object> msgDetails) {
+    if (messageType.equals(GameMessage.GAME_ACTION_START)) {
+        if (((String) msgDetails.get("player-white")).equals(this.userName())) {
+            System.out.println("Game State: " + msgDetails.get("player-white"));
+            ourPlayer = "White Player: " + this.userName;
+            enemyPlayer = "Black Player: " + msgDetails.get("player-black");
+        } else {
+            ourPlayer = "Black Player: " + this.userName;
+            enemyPlayer = "White Player: " + msgDetails.get("player-white");
+        }
+
+        // Initialize AmazonsBoard with the game state
+         turnCount++;
+        gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+
+        // Initialize AmazonsBoard with the game state
+        ArrayList<Integer> gameState = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.GAME_STATE);
+        amazonsBoard.setGameState(gameState); // Synchronize AmazonsBoard
+        gamegui.setGameState(gameState); // Update GUI
     }
-  
-    private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
+}
+   private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
+    // Extract move details
+    ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
+    ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
+    ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
+
+    // Update AmazonsBoard with the opponent's move
+    amazonsBoard.updateGameState(qcurr, qnew, arrow);
+
+    // Update GUI
+    gamegui.updateGameState(msgDetails);
+
+    // Update internal board representation
+    gameBoard.markPosition(qnew.get(0), qnew.get(1), arrow.get(0), arrow.get(1), qcurr.get(0), qcurr.get(1), true);
+    amazonsBoard.updateGameState(qcurr, qnew, arrow); // Synchronize AmazonsBoard
+    updateGameGUI(msgDetails);
+    ourBoard.canEnemyMove();
+    ourBoard.updateLegalQueenMoves();
+    ourBoard.printBoard();
+
+    // Check if the game is over
+    if (ourBoard.goalTest()) {
+        System.out.println("\n THE GAME IS NOW OVER \n");
+        return;
+    }
+
+    // Make our move
+    turnCount++;
+    gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+
+    SearchTreeNode ourBestMove = search.makeMove();
+    Queen q = ourBestMove.getQueen();
+    Arrow a = ourBestMove.getArrowShot();
+    ourBoard.canEnemyMove();
+    ourBoard.updateLegalQueenMoves();
+    System.out.println("\nOur Move: [" + translateRow(q.row) + ", " + translateCol(q.col) + "]");
+    gameBoard.markPosition(translateRow(q.row), translateCol(q.col), translateRow(a.getRowPosition()), translateCol(a.getColPosition()),
+            translateRow(q.previousRow), translateCol(q.previousCol), false);
+   amazonsBoard.updateGameState(qcurr, qnew, arrow); // Synchronize AmazonsBoard
+    updateGameGUI(msgDetails);
+    System.out.println("Our Arrow Shot: [" + translateRow(a.row) + ", " + translateCol(a.col) + "]\n");
+    ourBoard.printBoard();
+
+    // Check if the game is over again
+    if (ourBoard.goalTest()) {
+        System.out.println("\n THE GAME IS NOW OVER \n");
+    }
+}
+   /* private void handleOpponentMove(, Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
     	if (gamegui != null) {
 			gamegui.updateGameState(msgDetails);
 		}
     	turnCount++;
         gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+            amazonsBoard.updateGameState(msgDetails);
+
         System.out.println("\nOpponentMove: " + msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT));
         System.out.println("Opponent Arrow Shot: " + msgDetails.get(AmazonsGameMessage.ARROW_POS) + "\n");
+        
         ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
         ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
         ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
@@ -208,9 +288,12 @@ public class COSC322Test extends GamePlayer {
         search.makeMoveOnRoot(enemyQueen, enemyArrow);
         
         gameBoard.markPosition(qnew.get(0),qnew.get(1), arrow.get(0), arrow.get(1), qcurr.get(0), qcurr.get(1),true);
+        amazonsBoard.updateGameState(qcurr, qnew, arrow); // Synchronize AmazonsBoard
+        updateGameGUI(msgDetails);
         ourBoard.canEnemyMove();
         ourBoard.updateLegalQueenMoves();
         ourBoard.printBoard();
+        amazonsBoard.updateGameState(msgDetails);
         // test if game is over
         if(ourBoard.goalTest()) {
             System.out.println("\n THE GAME IS NOW OVER \n");
@@ -230,14 +313,16 @@ public class COSC322Test extends GamePlayer {
                 translateRow(q.previousRow), translateCol(q.previousCol), false);
 		System.out.println("Our Arrow Shot: [" + translateRow(a.row) + ", " + translateCol(a.col) + "]\n");
 		ourBoard.printBoard();
+        amazonsBoard.updateGameState(qcurr, qnew, arrow); // Synchronize AmazonsBoard
+        updateGameGUI(msgDetails);
 		//test if game is over again
 		if(ourBoard.goalTest()) {
             System.out.println("\n THE GAME IS NOW OVER \n");
-            return;
+            
         }
         
     }
-
+*/
 
     private int convertRow(int row) {
         return Math.abs(row - 10); // formula to convert server's row coordinate system to our Board's coordinate system
