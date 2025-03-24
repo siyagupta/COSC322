@@ -23,35 +23,50 @@ public class COSC322Test extends GamePlayer {
     private GameBoard gameBoard = null;
     private String userName = null;
     private String passwd = null;
-    private AmazonsBoard amazonsBoard;
+    protected localBoard amazonsBoard = new localBoard();
+    protected ActionFactory actionFactory = new ActionFactory();
     private boolean gameStarted = false;
     private GameRules ourBoard = null;
     int turnCount = 0;
     String ourPlayer = "";
     String enemyPlayer = "";
 
+    
     public static void main(String[] args) {
     	String uniqueUserName = "player_" + System.currentTimeMillis();
         COSC322Test player = new COSC322Test(uniqueUserName, "cosc322");
-        player.connect();
-        if (player.getGameGUI() == null) {
-            player.Go();
+        MonteCarloPlayer playerMC = new MonteCarloPlayer();
+        playerMC.connect();
+        if (playerMC.getGameGUI() == null) {
+            playerMC.Go();
         } else {
             BaseGameGUI.sys_setup();
-            java.awt.EventQueue.invokeLater(() -> player.Go());
+            java.awt.EventQueue.invokeLater(() -> playerMC.Go());
             
         }
-    }
-
+    } 
+   
+    
+    protected ArrayList<Actions> getAvailableActions() {
+        return actionFactory.getActions(amazonsBoard);
+      }
     public COSC322Test(String userName, String passwd) {
-        this.userName = userName;
+        this.userName =  "player_" + System.currentTimeMillis();;
         this.passwd = passwd;
         this.gamegui = new BaseGameGUI(this);
-        ygraph.ai.smartfox.games.Amazon amazonInstance = new ygraph.ai.smartfox.games.Amazon(userName, passwd);
+      /*  ygraph.ai.smartfox.games.Amazon amazonInstance = new ygraph.ai.smartfox.games.Amazon(userName, passwd);
         this.gameBoard = amazonInstance.new GameBoard(amazonInstance);
-       this.amazonsBoard = new AmazonsBoard();
+       this.amazonsBoard = new AmazonsBoard(); */
     }
- 
+    protected void sendMove(List<Integer> queenCurrent, List<Integer> queenTarget, List<Integer> arrowTarget) {
+        amazonsBoard.updateState(queenCurrent, queenTarget, arrowTarget);
+        amazonsBoard.printState();
+        gamegui.updateGameState(new ArrayList<>(queenCurrent), new ArrayList<>(queenTarget), new ArrayList<>(arrowTarget));
+        gameClient.sendMoveMessage(new ArrayList<>(queenCurrent), new ArrayList<>(queenTarget), new ArrayList<>(arrowTarget));
+      }
+
+    /** Called when the player receives a move message from the server. */
+   
     @Override
     public void onLogin() {
         if (gameClient != null) {
@@ -61,18 +76,7 @@ public class COSC322Test extends GamePlayer {
             this.userName = gameClient.getUserName();
             if (gamegui != null) {
                 gamegui.setRoomInformation(gameClient.getRoomList());
-            } else {
-    			List<Room> rooms = gameClient.getRoomList();
-    			for (int i = 0; i < rooms.size(); i++) {
-    				Room room = rooms.get(i);
-    				System.out.println("[" + i + "] " + room.getName() + " " + room.getUserCount() + "/2");
-    			}
-    			try (Scanner scanner = new Scanner(System.in)) {
-    				System.out.print("Enter room number: ");
-    				int roomIndex = scanner.nextInt();
-    				gameClient.joinRoom(rooms.get(roomIndex).getName());
-    			}
-            }
+            } 
         }
     }
 private void updateGameGUI(Map<String, Object> msgDetails) {
@@ -95,7 +99,7 @@ private void updateGameGUI(Map<String, Object> msgDetails) {
 				e.printStackTrace();
 			} break;
 		}
-		return true;
+		return true; 
 	/*
     	if (messageType.equals(GameMessage.GAME_ACTION_START)) {
             if (((String) msgDetails.get("player-white")).equals(this.userName())) {
@@ -197,6 +201,9 @@ private void updateGameGUI(Map<String, Object> msgDetails) {
     	}
         
     } */
+   
+
+    
   private void handleGameStart(String messageType, Map<String, Object> msgDetails) {
     if (messageType.equals(GameMessage.GAME_ACTION_START)) {
         if (((String) msgDetails.get("player-white")).equals(this.userName())) {
@@ -214,10 +221,10 @@ private void updateGameGUI(Map<String, Object> msgDetails) {
 
         // Initialize AmazonsBoard with the game state
         ArrayList<Integer> gameState = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.GAME_STATE);
-        amazonsBoard.setGameState(gameState); // Synchronize AmazonsBoard
+        amazonsBoard.setState(gameState); // Synchronize AmazonsBoard
         gamegui.setGameState(gameState); // Update GUI
     }
-}
+} 
    private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
     // Extract move details
     ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
@@ -225,14 +232,14 @@ private void updateGameGUI(Map<String, Object> msgDetails) {
     ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
 
     // Update AmazonsBoard with the opponent's move
-    amazonsBoard.updateGameState(qcurr, qnew, arrow);
+    amazonsBoard.updateState(qcurr, qnew, arrow);
 
     // Update GUI
     gamegui.updateGameState(msgDetails);
 
     // Update internal board representation
     gameBoard.markPosition(qnew.get(0), qnew.get(1), arrow.get(0), arrow.get(1), qcurr.get(0), qcurr.get(1), true);
-    amazonsBoard.updateGameState(qcurr, qnew, arrow); // Synchronize AmazonsBoard
+    amazonsBoard.updateState(qcurr, qnew, arrow); // Synchronize AmazonsBoard
     updateGameGUI(msgDetails);
     ourBoard.canEnemyMove();
     ourBoard.updateLegalQueenMoves();
@@ -256,7 +263,7 @@ private void updateGameGUI(Map<String, Object> msgDetails) {
     System.out.println("\nOur Move: [" + translateRow(q.row) + ", " + translateCol(q.col) + "]");
     gameBoard.markPosition(translateRow(q.row), translateCol(q.col), translateRow(a.getRowPosition()), translateCol(a.getColPosition()),
             translateRow(q.previousRow), translateCol(q.previousCol), false);
-   amazonsBoard.updateGameState(qcurr, qnew, arrow); // Synchronize AmazonsBoard
+   amazonsBoard.updateState(qcurr, qnew, arrow); // Synchronize AmazonsBoard
     updateGameGUI(msgDetails);
     System.out.println("Our Arrow Shot: [" + translateRow(a.row) + ", " + translateCol(a.col) + "]\n");
     ourBoard.printBoard();
@@ -323,7 +330,9 @@ private void updateGameGUI(Map<String, Object> msgDetails) {
         
     }
 */
-
+   private <T extends Object> T getMessageByTag(Map<String, Object> messages, String tag) {
+	    return (T) messages.get(tag);
+	  }
     private int convertRow(int row) {
         return Math.abs(row - 10); // formula to convert server's row coordinate system to our Board's coordinate system
     }
@@ -359,4 +368,10 @@ private void updateGameGUI(Map<String, Object> msgDetails) {
     public void connect() {
         gameClient = new GameClient(userName, passwd, this);
     }
+
+
+	protected void move() {
+	
+		
+	}
 }
