@@ -81,7 +81,7 @@ public class COSC322Test extends GamePlayer {
     }
 private void updateGameGUI(Map<String, Object> msgDetails) {
     if (gamegui != null && amazonsBoard != null) {
-        gamegui.setGameState((ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.GAME_STATE));
+        gamegui.setGameState( amazonsBoard.getState());
     }
 }
     @Override
@@ -152,7 +152,7 @@ private void updateGameGUI(Map<String, Object> msgDetails) {
     }
     private void handleBoardMessage(Map<String, Object> msgDetails) {
 		if (gamegui != null) {
-			gamegui.setGameState((ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.GAME_STATE));
+			gamegui.setGameState(amazonsBoard.getState());
 		}
 		System.out.println(msgDetails.get(AmazonsGameMessage.GAME_STATE_BOARD));
     }
