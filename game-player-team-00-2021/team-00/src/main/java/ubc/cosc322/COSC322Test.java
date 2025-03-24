@@ -2,19 +2,26 @@
 package ubc.cosc322;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
 
+import sfs2x.client.entities.Room;
+import ygraph.ai.smartfox.games.Amazon.GameBoard;
 import ygraph.ai.smartfox.games.BaseGameGUI;
 import ygraph.ai.smartfox.games.GameClient;
 import ygraph.ai.smartfox.games.GameMessage;
 import ygraph.ai.smartfox.games.GamePlayer;
+import ygraph.ai.smartfox.games.amazons.AmazonsGameMessage;
+import ygraph.ai.smartfox.games.amazons.HumanPlayer;
 
 public class COSC322Test extends GamePlayer {
 
     private SearchTree search;
     private GameClient gameClient = null;
     private BaseGameGUI gamegui = null;
+    private GameBoard gameBoard = null;
     private String userName = null;
     private String passwd = null;
     private boolean gameStarted = false;
@@ -24,13 +31,14 @@ public class COSC322Test extends GamePlayer {
     String enemyPlayer = "";
 
     public static void main(String[] args) {
-        COSC322Test player = new COSC322Test("cosc322", "cosc322");
-
+    	COSC322Test player = new COSC322Test("cosc322", "cosc322");
+        
         if (player.getGameGUI() == null) {
             player.Go();
         } else {
             BaseGameGUI.sys_setup();
             java.awt.EventQueue.invokeLater(() -> player.Go());
+            
         }
     }
 
@@ -39,7 +47,7 @@ public class COSC322Test extends GamePlayer {
         this.passwd = passwd;
         this.gamegui = new BaseGameGUI(this);
     }
-
+   
     @Override
     public void onLogin() {
         if (gameClient != null) {
@@ -49,16 +57,42 @@ public class COSC322Test extends GamePlayer {
             this.userName = gameClient.getUserName();
             if (gamegui != null) {
                 gamegui.setRoomInformation(gameClient.getRoomList());
+            } else {
+    			List<Room> rooms = gameClient.getRoomList();
+    			for (int i = 0; i < rooms.size(); i++) {
+    				Room room = rooms.get(i);
+    				System.out.println("[" + i + "] " + room.getName() + " " + room.getUserCount() + "/2");
+    			}
+    			try (Scanner scanner = new Scanner(System.in)) {
+    				System.out.print("Enter room number: ");
+    				int roomIndex = scanner.nextInt();
+    				gameClient.joinRoom(rooms.get(roomIndex).getName());
+    			}
             }
         }
     }
 
     @Override
     public boolean handleGameMessage(String messageType, Map<String, Object> msgDetails) {
-        if (messageType.equals(GameMessage.GAME_ACTION_START)) {
+    	switch(messageType) {
+		case GameMessage.GAME_STATE_BOARD: handleBoardMessage(msgDetails); break;
+		case GameMessage.GAME_ACTION_START: handleGameStart(messageType, msgDetails); break;
+		case GameMessage.GAME_ACTION_MOVE: try {
+				handleOpponentMove(msgDetails);
+			} catch (CloneNotSupportedException e) {
+				
+				e.printStackTrace();
+			} catch (ExecutionException e) {
+			
+				e.printStackTrace();
+			} break;
+		}
+		return true;
+	/*
+    	if (messageType.equals(GameMessage.GAME_ACTION_START)) {
             if (((String) msgDetails.get("player-white")).equals(this.userName())) {
                 System.out.println("Game State: " + msgDetails.get("player-white"));
-                ourPlayer = "White Player: " + this.userName();
+                ourPlayer = "White Player: " + this.userName;
                 enemyPlayer = "Black Player: " + msgDetails.get("player-black");
                 turnCount++;
                 gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
@@ -74,13 +108,18 @@ public class COSC322Test extends GamePlayer {
                 } catch (ExecutionException ex) {
                     ex.printStackTrace();
                 }
+              
                 Queen ourMove = ourBestMove.getQueen();
                 Arrow ourArrow = ourBestMove.getArrowShot();
                 ourBoard.canEnemyMove();
                 ourBoard.updateLegalQueenMoves();
                 System.out.println("\nOur Move: [" + translateRow(ourMove.row) + ", " + translateCol(ourMove.col) + "]");
                 System.out.println("Our Arrow Shot: [" + translateRow(ourArrow.row) + ", " + translateCol(ourArrow.col) + "]\n");
-
+                gameBoard.markPosition(translateRow(ourMove.row), translateCol(ourMove.col), translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition()),
+						translateRow(ourMove.previousRow), translateCol(ourMove.previousCol), false);
+              //  gameClient.sendMoveMessage(ourMove.combinedMove(translateRow(ourMove.previousRow), translateCol(ourMove.previousCol)),
+                   //     ourMove.combinedMove(translateRow(ourMove.row), translateCol(ourMove.col)),
+                //        ourArrow.combinedMove(translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition())));
                 ourBoard.printBoard();
 
             } else {
@@ -97,12 +136,67 @@ public class COSC322Test extends GamePlayer {
         ArrayList<Integer> GameS = (ArrayList<Integer>) msgDetails.get("game-state");
         gamegui.setGameState(GameS);
 
-        return true;
+        return true; */
     }
+    private void handleBoardMessage(Map<String, Object> msgDetails) {
+		if (gamegui != null) {
+			gamegui.setGameState((ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.GAME_STATE));
+		}
+		System.out.println(msgDetails.get(AmazonsGameMessage.GAME_STATE_BOARD));
+    }
+    private void handleGameStart(String messageType, Map<String, Object> msgDetails) {
+    	if (messageType.equals(GameMessage.GAME_ACTION_START)) {
+            if (((String) msgDetails.get("player-white")).equals(this.userName())) {
+                System.out.println("Game State: " + msgDetails.get("player-white"));
+                ourPlayer = "White Player: " + this.userName;
+                enemyPlayer = "Black Player: " + msgDetails.get("player-black");
+                turnCount++;
+                gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+                ourBoard = new GameRules(true);
+                System.out.println("Initial Board");
+                ourBoard.printBoard();
+                ourBoard.canEnemyMove();
+                ourBoard.updateLegalQueenMoves();
+                search = new SearchTree(new SearchTreeNode(ourBoard));
+                SearchTreeNode ourBestMove = null;
+                try {
+                    ourBestMove = search.makeMove();
+                } catch (ExecutionException ex) {
+                    ex.printStackTrace();
+                }
+              
+                Queen ourMove = ourBestMove.getQueen();
+                Arrow ourArrow = ourBestMove.getArrowShot();
+                ourBoard.canEnemyMove();
+                ourBoard.updateLegalQueenMoves();
+                System.out.println("\nOur Move: [" + translateRow(ourMove.row) + ", " + translateCol(ourMove.col) + "]");
+                System.out.println("Our Arrow Shot: [" + translateRow(ourArrow.row) + ", " + translateCol(ourArrow.col) + "]\n");
+                gameBoard.markPosition(translateRow(ourMove.row), translateCol(ourMove.col), translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition()),
+						translateRow(ourMove.previousRow), translateCol(ourMove.previousCol), false);
+              //  gameClient.sendMoveMessage(ourMove.combinedMove(translateRow(ourMove.previousRow), translateCol(ourMove.previousCol)),
+                   //     ourMove.combinedMove(translateRow(ourMove.row), translateCol(ourMove.col)),
+                //        ourArrow.combinedMove(translateRow(ourArrow.getRowPosition()), translateCol(ourArrow.getColPosition())));
+                ourBoard.printBoard();
 
+            } else {
+                ourPlayer = "Black Player: " + this.userName();
+                enemyPlayer = "White Player: " + msgDetails.get("player-white");
+                ourBoard = new GameRules(false);
+                search = new SearchTree(new SearchTreeNode(ourBoard));
+
+            }
+    	}
+        
+    }
+  
     private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
-        turnCount++;
+    	if (gamegui != null) {
+			gamegui.updateGameState(msgDetails);
+		}
+    	turnCount++;
         gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+        System.out.println("\nOpponentMove: " + msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT));
+        System.out.println("Opponent Arrow Shot: " + msgDetails.get(AmazonsGameMessage.ARROW_POS) + "\n");
         ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
         ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
         ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
@@ -113,20 +207,35 @@ public class COSC322Test extends GamePlayer {
         Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get(1)));
         search.makeMoveOnRoot(enemyQueen, enemyArrow);
         
-        markArrow(qnew, arrow, qcurr, true);
+        gameBoard.markPosition(qnew.get(0),qnew.get(1), arrow.get(0), arrow.get(1), qcurr.get(0), qcurr.get(1),true);
         ourBoard.canEnemyMove();
         ourBoard.updateLegalQueenMoves();
         ourBoard.printBoard();
-        
+        // test if game is over
         if(ourBoard.goalTest()) {
             System.out.println("\n THE GAME IS NOW OVER \n");
             return;
         }
-        
+        // Our Move
         turnCount++;
         gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+       
         SearchTreeNode ourBestMove = search.makeMove();
-        executeMove(ourBestMove);
+        Queen q = ourBestMove.getQueen();
+        Arrow a = ourBestMove.getArrowShot();
+        ourBoard.canEnemyMove();
+        ourBoard.updateLegalQueenMoves();
+        System.out.println("\nOur Move: [" + translateRow(q.row) + ", " + translateCol(q.col) + "]");
+        gameBoard.markPosition(translateRow(q.row), translateCol(q.col), translateRow(a.getRowPosition()), translateCol(a.getColPosition()),
+                translateRow(q.previousRow), translateCol(q.previousCol), false);
+		System.out.println("Our Arrow Shot: [" + translateRow(a.row) + ", " + translateCol(a.col) + "]\n");
+		ourBoard.printBoard();
+		//test if game is over again
+		if(ourBoard.goalTest()) {
+            System.out.println("\n THE GAME IS NOW OVER \n");
+            return;
+        }
+        
     }
 
 
