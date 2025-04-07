@@ -95,5 +95,25 @@ public class SearchTreeNode {
     public void setValue(int V) {
         heuristicValue = V;
     }
+    
+    /**
+     * Returns the queen's starting position using the Queen's previous position.
+     */
+    public ArrayList<Integer> getQueenPosCurr() {
+        return queen.getPreviousPosition();
+    }
 
-} // end of SearchTreeNode
+    /**
+     * Returns the queen's destination position using the Queen's current position.
+     */
+    public ArrayList<Integer> getQueenPosNext() {
+        return queen.getCurrentPosition();
+    }
+
+    /**
+     * Returns the arrow's position.
+     */
+    public ArrayList<Integer> getArrowPos() {
+        return arrowShot.getPosition();
+    }
+}
