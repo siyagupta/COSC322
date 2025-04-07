@@ -22,6 +22,7 @@ public class COSC322Test extends GamePlayer {
     private BaseGameGUI gamegui = null;
     private GameBoard gameBoard = null;
     private String userName = null;
+    private MonteCarloPlayer ai;
     private String passwd = null;
     protected localBoard amazonsBoard = new localBoard();
     protected ActionFactory actionFactory = new ActionFactory();
@@ -37,6 +38,7 @@ public class COSC322Test extends GamePlayer {
         COSC322Test player = new COSC322Test(uniqueUserName, "cosc322");
         MonteCarloPlayer playerMC = new MonteCarloPlayer();
         playerMC.connect();
+      
         if (playerMC.getGameGUI() == null) {
             playerMC.Go();
         } else {
@@ -50,13 +52,16 @@ public class COSC322Test extends GamePlayer {
     protected ArrayList<Actions> getAvailableActions() {
         return actionFactory.getActions(amazonsBoard);
       }
+    
     public COSC322Test(String userName, String passwd) {
         this.userName =  "player_" + System.currentTimeMillis();;
         this.passwd = passwd;
         this.gamegui = new BaseGameGUI(this);
-      /*  ygraph.ai.smartfox.games.Amazon amazonInstance = new ygraph.ai.smartfox.games.Amazon(userName, passwd);
+        this.ai = new MonteCarloPlayer();
+        ygraph.ai.smartfox.games.Amazon amazonInstance = new ygraph.ai.smartfox.games.Amazon(userName, passwd);
         this.gameBoard = amazonInstance.new GameBoard(amazonInstance);
-       this.amazonsBoard = new AmazonsBoard(); */
+       this.amazonsBoard = new localBoard(); 
+       ai.
     }
     protected void sendMove(List<Integer> queenCurrent, List<Integer> queenTarget, List<Integer> arrowTarget) {
         amazonsBoard.updateState(queenCurrent, queenTarget, arrowTarget);

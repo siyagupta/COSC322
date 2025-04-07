@@ -20,6 +20,11 @@
             <version>2.1</version>
             <type>jar</type>
         </dependency>
+        <dependency>
+        	<groupId>ubc.cosc322</groupId>
+        	<artifactId>team-01</artifactId>
+        	<version>1.0</version>
+        </dependency>
     </dependencies>
 	
     <repositories>
