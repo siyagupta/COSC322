@@ -25,7 +25,7 @@ public class COSC322Test extends GamePlayer {
     String enemyPlayer = "";
 
     public static void main(String[] args) {
-        COSC322Test player = new COSC322Test("cosc322b", "cosc322b");
+        COSC322Test player = new COSC322Test("cosc322c", "cosc322c");
 
         if (player.getGameGUI() == null) {
             player.Go();
@@ -204,9 +204,30 @@ public class COSC322Test extends GamePlayer {
             System.out.println("Entered");
             GameClient gameClient = getGameClient();
             Map<String, Object> moveMessage = new HashMap<>();
-            moveMessage.put(AmazonsGameMessage.QUEEN_POS_CURR, ourBestMove.getQueenPosCurr());
-            moveMessage.put(AmazonsGameMessage.QUEEN_POS_NEXT, ourBestMove.getQueenPosNext());
-            moveMessage.put(AmazonsGameMessage.ARROW_POS, ourBestMove.getArrowPos());
+            // moveMessage.put(AmazonsGameMessage.QUEEN_POS_CURR, ourBestMove.getQueenPosCurr());
+            // moveMessage.put(AmazonsGameMessage.QUEEN_POS_NEXT, ourBestMove.getQueenPosNext());
+            // moveMessage.put(AmazonsGameMessage.ARROW_POS, ourBestMove.getArrowPos());
+            ArrayList<Integer> qCurr = ourBestMove.getQueenPosCurr();
+ArrayList<Integer> qNext = ourBestMove.getQueenPosNext();
+ArrayList<Integer> arrow = ourBestMove.getArrowPos();
+
+ArrayList<Integer> qCurrTranslated = new ArrayList<>();
+ArrayList<Integer> qNextTranslated = new ArrayList<>();
+ArrayList<Integer> arrowTranslated = new ArrayList<>();
+
+qCurrTranslated.add(translateRow(qCurr.get(0)));
+qCurrTranslated.add(translateCol(qCurr.get(1)));
+
+qNextTranslated.add(translateRow(qNext.get(0)));
+qNextTranslated.add(translateCol(qNext.get(1)));
+
+arrowTranslated.add(translateRow(arrow.get(0)));
+arrowTranslated.add(translateCol(arrow.get(1)));
+
+moveMessage.put(AmazonsGameMessage.QUEEN_POS_CURR, qCurrTranslated);
+moveMessage.put(AmazonsGameMessage.QUEEN_POS_NEXT, qNextTranslated);
+moveMessage.put(AmazonsGameMessage.ARROW_POS, arrowTranslated);
+
             System.out.println(ourBestMove.getQueenPosCurr().getClass());
 
             System.out.println("Ok");
