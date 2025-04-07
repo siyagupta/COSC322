@@ -1,77 +1,72 @@
 package ubc.cosc322;
 
-public class Queen extends Tile implements Cloneable{
+import java.util.ArrayList;
+
+public class Queen extends Tile implements Cloneable {
     public int previousRow;
     public int previousCol;
     protected boolean isOpponent;
 
     /**
+     * Overloaded constructor to allow instantiation with two arguments.
+     * Defaults isOpponent to false.
+     */
+    public Queen(int row, int col) {
+        super(row, col);
+        this.isOpponent = false;  // default value
+        this.previousRow = row;
+        this.previousCol = col;
+    }
+
+    /**
+     * Constructor that accepts row, col, and isOpponent.
+     */
+    public Queen(int row, int col, boolean isOpponent) {
+        super(row, col);
+        this.isOpponent = isOpponent;
+        this.previousRow = row;
+        this.previousCol = col;
+    }
+
+    /**
+     * Moves the queen to a new position.
+     * Updates the previous position accordingly.
+     */
+    public void moveQueen(int newRow, int newCol) {
+        // Save current position as previous
+        this.previousRow = this.row;
+        this.previousCol = this.col;
+        // Update to new position
+        this.row = newRow;
+        this.col = newCol;
+    }
+
+    /**
      * clone: creates a Queen object at its new location
      * @return: Queen object with its new location
      */
-	protected Queen clone() {
+    protected Queen clone() {
         Queen qNew = new Queen(row, col, isOpponent);
         return qNew;
     }
-
-
+    
     /**
-     * Queen constructor
-     * @param x: an int containing the row coordinate of the Queen
-     * @param y: an int containing the column coordinate of the Queen
+     * Returns the queen's current (destination) position as an ArrayList<Integer>.
      */
-    public Queen(int x, int y) {
-        super(x, y);
-        previousRow = x;
-        previousCol = y;
+    public ArrayList<Integer> getCurrentPosition() {
+        ArrayList<Integer> pos = new ArrayList<>();
+        pos.add(this.row);  // current row
+        pos.add(this.col);  // current column
+        return pos;
     }
-
+    
     /**
-     *
-     * @param x: an int storing the row location
-     * @param y: an int storing the column location
-     * @param isOpponent a boolean indicating if the Queen is an opponent or not
+     * Returns the queen's previous (starting) position as an ArrayList<Integer>.
      */
-
-    public Queen(int x, int y, boolean isOpponent) {
-        super(x, y);
-        this.previousRow = x;
-        this.previousCol = y;
-    	this.isOpponent = isOpponent;
+    public ArrayList<Integer> getPreviousPosition() {
+        ArrayList<Integer> pos = new ArrayList<>();
+        pos.add(this.previousRow);
+        pos.add(this.previousCol);
+        return pos;
     }
-
-    public int[] getOldPosition() {
-    return new int[]{previousRow, previousCol};
 }
-
-public int[] getNewPosition() {
-    return new int[]{super.row, super.col};  // Returns the updated position
-}
-
-
-    /**
-     * moveQueen: places a Queen object at its new location
-     * @param row: an int containing the row position of the Queen
-     * @param col: an int containing the column position of the Queen
-     */
-    public void moveQueen(int row, int col) {
-        // this.previousRow = qRow;
-        // this.previousCol = qCol;
-        super.row = row;
-        super.col = col;
-    }
-
-    /**
-     * combinedMove: creates an int array storing the row, and column of a Queen in order to pass it
-     * to the Game of the Amazons server
-     * @param row: an int containing a Queen's row position
-     * @param col: an int containing Queen's column position
-     * @return: an int array containing the row, and column of a Queen
-     */
-    public int[] combinedMove(int row, int col) {
-        int[] move = new int[2];
-        move[0] = row;
-        move[1] = col;
-        return move;
-    } // end of combinedMove
-} // end of Queen
