@@ -23,6 +23,11 @@ public class COSC322Test extends GamePlayer {
     int turnCount = 0;
     String ourPlayer = "";
     String enemyPlayer = "";
+    
+    // NEW: Store our color as a boolean.
+    // true  => we are playing WHITE, so enemy is BLACK.
+    // false => we are playing BLACK, so enemy is WHITE.
+    private boolean weAreWhite;
 
     public static void main(String[] args) {
         COSC322Test player = new COSC322Test("cosc322c", "cosc322c");
@@ -39,7 +44,7 @@ public class COSC322Test extends GamePlayer {
         this.userName = userName;
         this.passwd = passwd;
         this.gamegui = new BaseGameGUI(this);
-        this.connect(); // <-- Missing connect call added here
+        this.connect(); // <-- Connect to the server
     }
 
     @Override
@@ -84,15 +89,22 @@ public class COSC322Test extends GamePlayer {
                 ourPlayer = userName();  // our username
                 enemyPlayer = whitePlayer.equals(ourPlayer) ? blackPlayer : whitePlayer;
 
+                // NEW: Determine our color and store it in weAreWhite.
+                weAreWhite = whitePlayer.equals(ourPlayer);
+
                 System.out.println("White: " + whitePlayer + ", Black: " + blackPlayer);
 
                 ourBoard = new GameRules(gameStarted);
+                // FIX: If we are black, swap friend and enemy arrays so that our pieces reflect our true color.
+                if (!weAreWhite) {
+                    Queen[] temp = ourBoard.friend;
+                    ourBoard.friend = ourBoard.enemy;
+                    ourBoard.enemy = temp;
+                }
                 SearchTreeNode root = new SearchTreeNode(ourBoard);
                 search = new SearchTree(root);
 
-                boolean weAreWhite = whitePlayer.equals(ourPlayer);
-
-                if (weAreWhite) {
+                if (weAreWhite) { // if we are white, we move first
                     try {
                         System.out.println("We are WHITE. Making first move...");
                         turnCount++;
@@ -110,36 +122,90 @@ public class COSC322Test extends GamePlayer {
         return true;
     }
 
-    private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
-        turnCount++;
-        gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+    private void handleOpponentMove(Map<String, Object> msgDetails) 
+        throws CloneNotSupportedException, ExecutionException {
+    // Increment turn counter to reflect the opponent's move
+    turnCount++;
+    gamegui.setTitle("Turn: " + turnCount + " | Opponent's move | " 
+                        + ourPlayer + " vs. " + enemyPlayer);
 
-        ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
-        ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
-        ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
+    ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
+    ArrayList<Integer> qnew  = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
+    ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
 
-        Queen enemyQueen = new Queen(convertRow(qnew.get(0)), convertCol(qnew.get(1)), true);
-        enemyQueen.previousRow = convertRow(qcurr.get(0));
-        enemyQueen.previousCol = convertCol(qcurr.get(1));
-        Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get(1)));
+    // Construct the enemy queen.
+    // (Assumption: the third parameter is true if the queen is black, false if white.
+    // When we determined our color at game start, we set "weAreWhite".
+    // Hence, if we are white then enemy is black (true), and if we are black enemy is white (false).)
+    Queen enemyQueen = new Queen(convertRow(qnew.get(0)), convertCol(qnew.get(1)), weAreWhite);
+    enemyQueen.previousRow = convertRow(qcurr.get(0));
+    enemyQueen.previousCol = convertCol(qcurr.get(1));
+    Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get(1)));
 
-        search.makeMoveOnRoot(enemyQueen, enemyArrow);
+    // Update our search tree with the opponent’s move.
+    search.makeMoveOnRoot(enemyQueen, enemyArrow);
 
-        markArrow(qnew, arrow, qcurr, true);
-        ourBoard.canEnemyMove();
-        ourBoard.updateLegalQueenMoves();
-        ourBoard.printBoard();
+    // Mark the arrow (and update the board display) as before.
+    markArrow(qnew, arrow, qcurr, true);
+    
+    // ---- FIX: Correct the turn updating after opponent move ----
+    // Added call to update enemyMove flag before updating legal moves.
+    ourBoard.canEnemyMove();
+    ourBoard.updateLegalQueenMoves();
+    ourBoard.printBoard();
+    // ------------------------------------------------------------
 
-        if (ourBoard.goalTest()) {
-            System.out.println("\n THE GAME IS NOW OVER \n");
-            return;
-        }
-
-        turnCount++;
-        gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
-        SearchTreeNode ourBestMove = search.makeMove();
-        executeMove(ourBestMove);
+    if (ourBoard.goalTest()) {
+        System.out.println("\nTHE GAME IS NOW OVER\n");
+        return;
     }
+
+    // Now that the enemy move has been processed and it’s our turn,
+    // generate and execute our move.
+    turnCount++;
+    gamegui.setTitle("Turn: " + turnCount + " | " + userName() + "'s move | " 
+                        + ourPlayer + " vs. " + enemyPlayer);
+    SearchTreeNode ourBestMove = search.makeMove();
+    executeMove(ourBestMove);
+}
+
+    // === Modified handleOpponentMove method ===
+    // private void handleOpponentMove(Map<String, Object> msgDetails) throws CloneNotSupportedException, ExecutionException {
+    //     // Process the opponent's move
+    //     turnCount++;
+    //     gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+    //
+    //     ArrayList<Integer> qcurr = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_CURR);
+    //     ArrayList<Integer> qnew = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.QUEEN_POS_NEXT);
+    //     ArrayList<Integer> arrow = (ArrayList<Integer>) msgDetails.get(AmazonsGameMessage.ARROW_POS);
+    //
+    //     // NEW: Create the enemy queen using the correct color.
+    //     // If we are WHITE then enemy must be BLACK (and vice-versa).
+    //     // For the Queen constructor, the third parameter indicates isBlack.
+    //     Queen enemyQueen = new Queen(convertRow(qnew.get(0)), convertCol(qnew.get(1)), weAreWhite);  
+    //     enemyQueen.previousRow = convertRow(qcurr.get(0));
+    //     enemyQueen.previousCol = convertCol(qcurr.get(1));
+    //     Arrow enemyArrow = new Arrow(convertRow(arrow.get(0)), convertCol(arrow.get(1)));
+    //
+    //     search.makeMoveOnRoot(enemyQueen, enemyArrow);
+    //
+    //     markArrow(qnew, arrow, qcurr, true);
+    //     ourBoard.canEnemyMove();
+    //     ourBoard.updateLegalQueenMoves();
+    //     ourBoard.printBoard();
+    //
+    //     if (ourBoard.goalTest()) {
+    //         System.out.println("\n THE GAME IS NOW OVER \n");
+    //         return;
+    //     }
+    //
+    //     // Process our move
+    //     turnCount++;
+    //     gamegui.setTitle("Turn: " + turnCount + " | Move: " + userName() + " | " + ourPlayer + " | " + enemyPlayer);
+    //     SearchTreeNode ourBestMove = search.makeMove();
+    //     executeMove(ourBestMove);
+    // }
+    // ==========================================
 
     private int convertRow(int row) {
         return row - 1;
@@ -147,7 +213,6 @@ public class COSC322Test extends GamePlayer {
     }
 
     private int convertCol(int col) {
-
         return col - 1;
     }
 
@@ -186,7 +251,7 @@ public class COSC322Test extends GamePlayer {
         // Basic version just prints where the arrow is
         System.out.printf("Marking arrow on board at (row=%d, col=%d)\n", arrowRow, arrowCol);
 
-        // // Optional: if your GameRules or board class supports marking arrows
+        // Optional: if your GameRules or board class supports marking arrows
         // if (ourBoard != null) {
         //     ourBoard.placeArrow(arrowRow, arrowCol); // <-- You must implement this in GameRules if not present
         // }
@@ -197,39 +262,34 @@ public class COSC322Test extends GamePlayer {
             System.out.println("Invalid move!");
             return;
         }
-
         
-
         try {
             System.out.println("Entered");
             GameClient gameClient = getGameClient();
             Map<String, Object> moveMessage = new HashMap<>();
-            // moveMessage.put(AmazonsGameMessage.QUEEN_POS_CURR, ourBestMove.getQueenPosCurr());
-            // moveMessage.put(AmazonsGameMessage.QUEEN_POS_NEXT, ourBestMove.getQueenPosNext());
-            // moveMessage.put(AmazonsGameMessage.ARROW_POS, ourBestMove.getArrowPos());
+
             ArrayList<Integer> qCurr = ourBestMove.getQueenPosCurr();
-ArrayList<Integer> qNext = ourBestMove.getQueenPosNext();
-ArrayList<Integer> arrow = ourBestMove.getArrowPos();
+            ArrayList<Integer> qNext = ourBestMove.getQueenPosNext();
+            ArrayList<Integer> arrow = ourBestMove.getArrowPos();
 
-ArrayList<Integer> qCurrTranslated = new ArrayList<>();
-ArrayList<Integer> qNextTranslated = new ArrayList<>();
-ArrayList<Integer> arrowTranslated = new ArrayList<>();
+            ArrayList<Integer> qCurrTranslated = new ArrayList<>();
+            ArrayList<Integer> qNextTranslated = new ArrayList<>();
+            ArrayList<Integer> arrowTranslated = new ArrayList<>();
 
-qCurrTranslated.add(translateRow(qCurr.get(0)));
-qCurrTranslated.add(translateCol(qCurr.get(1)));
+            qCurrTranslated.add(translateRow(qCurr.get(0)));
+            qCurrTranslated.add(translateCol(qCurr.get(1)));
 
-qNextTranslated.add(translateRow(qNext.get(0)));
-qNextTranslated.add(translateCol(qNext.get(1)));
+            qNextTranslated.add(translateRow(qNext.get(0)));
+            qNextTranslated.add(translateCol(qNext.get(1)));
 
-arrowTranslated.add(translateRow(arrow.get(0)));
-arrowTranslated.add(translateCol(arrow.get(1)));
+            arrowTranslated.add(translateRow(arrow.get(0)));
+            arrowTranslated.add(translateCol(arrow.get(1)));
 
-moveMessage.put(AmazonsGameMessage.QUEEN_POS_CURR, qCurrTranslated);
-moveMessage.put(AmazonsGameMessage.QUEEN_POS_NEXT, qNextTranslated);
-moveMessage.put(AmazonsGameMessage.ARROW_POS, arrowTranslated);
+            moveMessage.put(AmazonsGameMessage.QUEEN_POS_CURR, qCurrTranslated);
+            moveMessage.put(AmazonsGameMessage.QUEEN_POS_NEXT, qNextTranslated);
+            moveMessage.put(AmazonsGameMessage.ARROW_POS, arrowTranslated);
 
             System.out.println(ourBestMove.getQueenPosCurr().getClass());
-
             System.out.println("Ok");
             gameClient.sendMoveMessage(moveMessage);
             System.out.println("Moved");
